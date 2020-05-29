@@ -4,7 +4,7 @@ import "ds-test/test.sol";
 
 import "./Quiz.sol";
 
-contract MockTimeMachine is TimeSource{
+contract MockTimeMachine is ITimeSource{
 
   uint private _mocked_now;
 

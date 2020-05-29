@@ -2,11 +2,11 @@ pragma solidity ^0.6.7;
 
 import "ds-test/test.sol";
 
-interface TimeSource {
+interface ITimeSource {
     function get_now() external returns (uint);
 }
 
-contract TimeMachine is TimeSource{
+contract DefaultTimeSource is ITimeSource{
   function get_now() public override returns (uint) {
     return now;
   }
@@ -25,7 +25,7 @@ contract Quiz {
   event log_named_uint (bytes32 key, uint val);
 
   bool _revealed;
-  TimeSource private _time_machine;
+  ITimeSource private _time_source;
 
   // block time from when reveal epoch *should* start
   uint private _reveal_epoch;
@@ -51,14 +51,14 @@ contract Quiz {
   mapping(string => uint) private _guess_tally;
 
 
-  constructor(TimeSource machine,
+  constructor(ITimeSource time_source,
               uint reveal_epoch,
               uint scam_epoch,
               bytes32 winning_hash
               ) public payable {
 
     _revealed = false;
-    _time_machine = machine;
+    _time_source = time_source;
     _reveal_epoch = reveal_epoch;
     _scam_epoch = scam_epoch;
     _winning_hash = winning_hash;
@@ -69,11 +69,11 @@ contract Quiz {
     if (_revealed) {
       return GameState.Revealed;
     }
-    if (_time_machine.get_now() < _reveal_epoch) {
+    if (_time_source.get_now() < _reveal_epoch) {
       return GameState.Started;
-    } else if (_time_machine.get_now() < _scam_epoch) {
+    } else if (_time_source.get_now() < _scam_epoch) {
       return GameState.RevealPeriod;
-    } else if (_time_machine.get_now() >= _scam_epoch) {
+    } else if (_time_source.get_now() >= _scam_epoch) {
       return GameState.Scammed;
     }
   }
