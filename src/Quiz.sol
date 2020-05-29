@@ -37,11 +37,19 @@ contract Quiz {
   // keccak256(guess + salt) have to result in the following hash to win the quiz
   bytes32 private _winning_hash;
 
+  //TODO: Probably get rid of all string types
+
   // The salt will only be known once we reveal, making it impossible for participants to
   // check if they got it right *before* we reveal the answer
   string private _salt;
 
-  mapping(address => string) private _guesses;
+  // Map players to their guesses. We remove players as soon as they claimed their profit.
+  mapping(address => string) private _active_player_guesses;
+
+  // Count how many addresses made the same guess. This is important to efficiently
+  // calculate proportional payouts. We substract counts whenever we pay out players.
+  mapping(string => uint) private _guess_tally;
+
 
   constructor(TimeSource machine,
               uint reveal_epoch,
@@ -71,7 +79,7 @@ contract Quiz {
   }
 
   function made_guess(address someone) private view returns (bool) {
-    return bytes(_guesses[someone]).length != 0;
+    return bytes(_active_player_guesses[someone]).length != 0;
   }
 
   // TODO: Everything :)
@@ -84,7 +92,8 @@ contract Quiz {
       revert("Can not place guess in current game phase");
     }
 
-    _guesses[msg.sender] = guess;
+    _active_player_guesses[msg.sender] = guess;
+    _guess_tally[guess]++;
   }
 
   // TODO: This whole thing needs to become multi player
@@ -98,13 +107,19 @@ contract Quiz {
     if (state == GameState.Started || state == GameState.RevealPeriod) {
       revert("Be patient! The game is still running.");
     } else if (state == GameState.Revealed) {
-      bytes32 final_hash = keccak256(abi.encodePacked(_guesses[msg.sender], _salt));
+      bytes32 final_hash = keccak256(abi.encodePacked(_active_player_guesses[msg.sender], _salt));
       emit log_bytes32(final_hash);
       if (final_hash == _winning_hash) {
-        delete _guesses[msg.sender];
-        // TODO: This need to be proportional to how many people got it right
-        // TODO: Also we need to check this can not be claimed multiple times
-        msg.sender.transfer(1 ether);
+        string memory guess = _active_player_guesses[msg.sender];
+        uint current_guess_tally = _guess_tally[guess];
+        // TODO: THIS IS PROBABLY PROBLEMATIC
+        uint payout = address(this).balance / current_guess_tally;
+        // We delete the player as a simple way to protect from reentrancy attacks
+        delete _active_player_guesses[msg.sender];
+        // We reduce the count for this specific guess when we pay it out to keep calculating
+        // the proportional payouts simple.
+        _guess_tally[guess]--;
+        msg.sender.transfer(payout);
       }
       else {
         revert("You lost");
