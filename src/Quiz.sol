@@ -41,7 +41,7 @@ contract Quiz {
   // check if they got it right *before* we reveal the answer
   string private _salt;
 
-  string private _tmp_answer;
+  mapping(address => string) private _guesses;
 
   constructor(TimeSource machine,
               uint reveal_epoch,
@@ -70,21 +70,38 @@ contract Quiz {
     }
   }
 
+  function made_guess(address someone) private view returns (bool) {
+    return bytes(_guesses[someone]).length != 0;
+  }
 
   // TODO: Everything :)
   function make_guess(string memory guess) public {
-    _tmp_answer = guess;
+    if (made_guess(msg.sender)) {
+      revert("Already placed your guess!");
+    }
+
+    if (get_state() != GameState.Started) {
+      revert("Can not place guess in current game phase");
+    }
+
+    _guesses[msg.sender] = guess;
   }
 
   // TODO: This whole thing needs to become multi player
   function claim_win() public {
+
+    if (!made_guess(msg.sender)){
+      revert("Not a player");
+    }
+
     GameState state = get_state();
     if (state == GameState.Started || state == GameState.RevealPeriod) {
       revert("Be patient! The game is still running.");
     } else if (state == GameState.Revealed) {
-      bytes32 final_hash = keccak256(abi.encodePacked(_tmp_answer, _salt));
+      bytes32 final_hash = keccak256(abi.encodePacked(_guesses[msg.sender], _salt));
       emit log_bytes32(final_hash);
       if (final_hash == _winning_hash) {
+        delete _guesses[msg.sender];
         // TODO: This need to be proportional to how many people got it right
         // TODO: Also we need to check this can not be claimed multiple times
         msg.sender.transfer(1 ether);
