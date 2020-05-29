@@ -19,7 +19,7 @@ enum GameState {
   Scammed
 }
 
-contract FooFoo {
+contract Quiz {
   // For debugging
   event log_bytes32 (bytes32);
   event log_named_uint (bytes32 key, uint val);

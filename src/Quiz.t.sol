@@ -2,7 +2,7 @@ pragma solidity ^0.6.7;
 
 import "ds-test/test.sol";
 
-import "./FooFoo.sol";
+import "./Quiz.sol";
 
 contract MockTimeMachine is TimeSource{
 
@@ -21,8 +21,8 @@ contract MockTimeMachine is TimeSource{
   }
 }
 
-contract FooFooTest is DSTest {
-    FooFoo egg;
+contract QuizTest is DSTest {
+    Quiz egg;
     MockTimeMachine _time_machine;
 
     string SALT = "o";
@@ -30,7 +30,7 @@ contract FooFooTest is DSTest {
 
     function setUp() public {
         _time_machine = new MockTimeMachine(1000);
-        egg = (new FooFoo){value: 1 ether}(_time_machine, 2000, 3000, WINNING_HASH);
+        egg = (new Quiz){value: 1 ether}(_time_machine, 2000, 3000, WINNING_HASH);
     }
 
     function test_initial_state() public {
