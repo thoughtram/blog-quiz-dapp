@@ -35,11 +35,11 @@ contract Quiz {
   uint private _scam_epoch;
 
   // keccak256(guess + salt) have to result in the following hash to win the quiz
-  bytes32 _winning_hash;
+  bytes32 private _winning_hash;
 
   // The salt will only be known once we reveal, making it impossible for participants to
   // check if they got it right *before* we reveal the answer
-  string _salt;
+  string private _salt;
 
   string private _tmp_answer;
 
