@@ -44,16 +44,17 @@ contract QuizTest is DSTest {
 
     address payable ALICE = 0xcda949D0415aF93828f91E1b6B130F8eB407D704;
     address payable BOB = 0xcca949D0415aF93828F91E1B6b130f8eB407d704;
+    address payable LAHJA = 0xCCa849D0415Af93828F91e1B6b130f8Eb407D704;
 
     function setUp() public {
         _time_machine = new MockTimeMachine(1000);
         _sender_source = new MockSender();
         _sender_source.set_sender(ALICE);
-        egg = (new Quiz){value: 1 ether}(_time_machine, _sender_source, 2000, 3000, WINNING_HASH);
+        egg = (new Quiz){value: 5 ether}(_time_machine, _sender_source, 2000, 3000, WINNING_HASH);
     }
 
     function test_initial_state() public {
-        assertEq(address(egg).balance, 1 ether);
+        assertEq(address(egg).balance, 5 ether);
         assertTrue(egg.get_state() == GameState.Started);
     }
 
@@ -109,12 +110,16 @@ contract QuizTest is DSTest {
         _time_machine.set_now(2000);
         egg.reveal_answer(SALT);
         egg.claim_win();
-        assertEq(ALICE.balance, 1 ether);
+        assertEq(ALICE.balance, 5 ether);
     }
 
     function test_two_winner_claim_reward() public {
         // Alice (default) makes a guess
         assertEq(ALICE.balance, 0 ether);
+        egg.make_guess("foo");
+
+        // Lahja makes a guess
+        _sender_source.set_sender(LAHJA);
         egg.make_guess("foo");
 
         // Bob makes a guess
@@ -127,12 +132,17 @@ contract QuizTest is DSTest {
 
         // Bob claims his reward
         egg.claim_win();
-        assertEq(BOB.balance, 0.5 ether);
+        assertEq(BOB.balance, 1666666666666666666);
 
         // Alice claims her reward
         _sender_source.set_sender(ALICE);
         egg.claim_win();
-        assertEq(ALICE.balance, 0.5 ether);
+        assertEq(ALICE.balance, 1666666666666666667);
+
+        // Lahja claims her reward
+        _sender_source.set_sender(LAHJA);
+        egg.claim_win();
+        assertEq(ALICE.balance, 1666666666666666667);
     }
 
     receive() external payable { }
