@@ -101,7 +101,8 @@ contract Quiz {
 
   // TODO: Everything :)
   function make_guess(string memory guess) public {
-    if (made_guess(get_sender())) {
+    address payable player = get_sender();
+    if (made_guess(player)) {
       revert("Already placed your guess!");
     }
 
@@ -109,7 +110,7 @@ contract Quiz {
       revert("Can not place guess in current game phase");
     }
 
-    _active_player_guesses[get_sender()] = guess;
+    _active_player_guesses[player] = guess;
     _guess_tally[guess]++;
     _guess_count++;
   }
