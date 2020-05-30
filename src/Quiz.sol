@@ -3,12 +3,22 @@ pragma solidity ^0.6.7;
 import "ds-test/test.sol";
 
 interface ITimeSource {
-    function get_now() external returns (uint);
+  function get_now() external returns (uint);
 }
 
 contract DefaultTimeSource is ITimeSource{
   function get_now() public override returns (uint) {
     return now;
+  }
+}
+
+interface ISenderSource {
+  function get_sender(address payable sender) external returns (address payable);
+}
+
+contract DefaultSender is ISenderSource{
+  function get_sender(address payable who) public override returns (address payable) {
+    return who;
   }
 }
 
@@ -22,10 +32,12 @@ enum GameState {
 contract Quiz {
   // For debugging
   event log_bytes32 (bytes32);
+  event log_address (address payable);
   event log_named_uint (bytes32 key, uint val);
 
   bool _revealed;
   ITimeSource private _time_source;
+  ISenderSource private _sender_source;
 
   // block time from when reveal epoch *should* start
   uint private _reveal_epoch;
@@ -52,6 +64,7 @@ contract Quiz {
 
 
   constructor(ITimeSource time_source,
+              ISenderSource sender_source,
               uint reveal_epoch,
               uint scam_epoch,
               bytes32 winning_hash
@@ -59,6 +72,7 @@ contract Quiz {
 
     _revealed = false;
     _time_source = time_source;
+    _sender_source = sender_source;
     _reveal_epoch = reveal_epoch;
     _scam_epoch = scam_epoch;
     _winning_hash = winning_hash;
@@ -84,7 +98,7 @@ contract Quiz {
 
   // TODO: Everything :)
   function make_guess(string memory guess) public {
-    if (made_guess(msg.sender)) {
+    if (made_guess(get_sender())) {
       revert("Already placed your guess!");
     }
 
@@ -92,14 +106,14 @@ contract Quiz {
       revert("Can not place guess in current game phase");
     }
 
-    _active_player_guesses[msg.sender] = guess;
+    _active_player_guesses[get_sender()] = guess;
     _guess_tally[guess]++;
   }
 
   // TODO: This whole thing needs to become multi player
   function claim_win() public {
 
-    if (!made_guess(msg.sender)){
+    if (!made_guess(get_sender())){
       revert("Not a player");
     }
 
@@ -107,19 +121,20 @@ contract Quiz {
     if (state == GameState.Started || state == GameState.RevealPeriod) {
       revert("Be patient! The game is still running.");
     } else if (state == GameState.Revealed) {
-      bytes32 final_hash = keccak256(abi.encodePacked(_active_player_guesses[msg.sender], _salt));
+      bytes32 final_hash = keccak256(abi.encodePacked(_active_player_guesses[get_sender()], _salt));
       emit log_bytes32(final_hash);
       if (final_hash == _winning_hash) {
-        string memory guess = _active_player_guesses[msg.sender];
+        string memory guess = _active_player_guesses[get_sender()];
         uint current_guess_tally = _guess_tally[guess];
         // TODO: THIS IS PROBABLY PROBLEMATIC
         uint payout = address(this).balance / current_guess_tally;
         // We delete the player as a simple way to protect from reentrancy attacks
-        delete _active_player_guesses[msg.sender];
+        delete _active_player_guesses[get_sender()];
         // We reduce the count for this specific guess when we pay it out to keep calculating
         // the proportional payouts simple.
         _guess_tally[guess]--;
-        msg.sender.transfer(payout);
+
+        get_sender().transfer(payout);
       }
       else {
         revert("You lost");
@@ -128,6 +143,12 @@ contract Quiz {
       // TODO: Need to proportional pay back fund
       revert("Not implemented");
     }
+  }
+
+  function get_sender() private returns (address payable) {
+    // In production, this just echos msg.sender back to us but during testing, we can
+    // mock different users to test complex scenarios.
+    return _sender_source.get_sender(msg.sender);
   }
 
   function reveal_answer(string memory salt) public {

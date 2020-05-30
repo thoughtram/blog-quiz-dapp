@@ -21,16 +21,35 @@ contract MockTimeMachine is ITimeSource{
   }
 }
 
+contract MockSender is ISenderSource{
+
+  address payable public mock_sender;
+
+  function set_sender(address payable sender) public {
+      mock_sender = sender;
+  }
+
+  function get_sender(address payable who) public override returns (address payable) {
+    return mock_sender;
+  }
+}
+
 contract QuizTest is DSTest {
     Quiz egg;
     MockTimeMachine _time_machine;
+    MockSender _sender_source;
 
     string SALT = "o";
     bytes32 WINNING_HASH = 0xf539ba76cb28bd8b154e5e1e046c11cc09c5a4831299ea08e5a04ce250df879f;
 
+    address payable ALICE = 0xcda949D0415aF93828f91E1b6B130F8eB407D704;
+    address payable BOB = 0xcca949D0415aF93828F91E1B6b130f8eB407d704;
+
     function setUp() public {
         _time_machine = new MockTimeMachine(1000);
-        egg = (new Quiz){value: 1 ether}(_time_machine, 2000, 3000, WINNING_HASH);
+        _sender_source = new MockSender();
+        _sender_source.set_sender(ALICE);
+        egg = (new Quiz){value: 1 ether}(_time_machine, _sender_source, 2000, 3000, WINNING_HASH);
     }
 
     function test_initial_state() public {
@@ -85,18 +104,36 @@ contract QuizTest is DSTest {
     }
 
     function test_claim_win_after_revealed() public {
-        uint256 old_balance = address(this).balance;
+        assertEq(ALICE.balance, 0 ether);
         egg.make_guess("foo");
         _time_machine.set_now(2000);
         egg.reveal_answer(SALT);
         egg.claim_win();
-        assertTrue(address(this).balance > old_balance);
+        assertEq(ALICE.balance, 1 ether);
     }
 
-    // function test_guess() public {
-    //     egg.make_guess("foo");
-    //     egg.claim_win();
-    // }
+    function test_two_winner_claim_reward() public {
+        // Alice (default) makes a guess
+        assertEq(ALICE.balance, 0 ether);
+        egg.make_guess("foo");
+
+        // Bob makes a guess
+        _sender_source.set_sender(BOB);
+        egg.make_guess("foo");
+
+        //We reveal (done as Bob but shouldn't matter)
+        _time_machine.set_now(2000);
+        egg.reveal_answer(SALT);
+
+        // Bob claims his reward
+        egg.claim_win();
+        assertEq(BOB.balance, 0.5 ether);
+
+        // Alice claims her reward
+        _sender_source.set_sender(ALICE);
+        egg.claim_win();
+        assertEq(ALICE.balance, 0.5 ether);
+    }
 
     receive() external payable { }
 
