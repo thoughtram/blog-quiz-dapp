@@ -56,11 +56,11 @@ contract Quiz {
   string private _salt;
 
   // Map players to their guesses. We remove players as soon as they claimed their profit.
-  mapping(address => string) private _active_player_guesses;
+  mapping(address => bytes32) private _active_player_guesses;
 
   // Count how many addresses made the same guess. This is important to efficiently
   // calculate proportional payouts. We substract counts whenever we pay out players.
-  mapping(string => uint) private _guess_tally;
+  mapping(bytes32 => uint) private _guess_tally;
 
   // We keep a count of all guesses incase we have to split the pot equally across all
   uint _guess_count;
@@ -96,11 +96,11 @@ contract Quiz {
   }
 
   function made_guess(address someone) private view returns (bool) {
-    return bytes(_active_player_guesses[someone]).length != 0;
+    return _active_player_guesses[someone] != bytes32("");
   }
 
   // TODO: Everything :)
-  function make_guess(string memory guess) public {
+  function make_guess(bytes32 guess_hash) public {
     address payable player = get_sender();
     if (made_guess(player)) {
       revert("Already placed your guess!");
@@ -110,8 +110,8 @@ contract Quiz {
       revert("Can not place guess in current game phase");
     }
 
-    _active_player_guesses[player] = guess;
-    _guess_tally[guess]++;
+    _active_player_guesses[player] = guess_hash;
+    _guess_tally[guess_hash]++;
     _guess_count++;
   }
 
@@ -127,14 +127,13 @@ contract Quiz {
     if (state == GameState.Started || state == GameState.RevealPeriod) {
       revert("Be patient! The game is still running.");
     } else if (state == GameState.Revealed) {
-      bytes32 final_hash = keccak256(abi.encodePacked(_active_player_guesses[get_sender()], _salt));
-      emit log_bytes32(final_hash);
-      if (final_hash == _winning_hash) {
-        string memory guess = _active_player_guesses[player];
-        uint256 payout = SafeMath.div(address(this).balance, _guess_tally[guess]);
+
+      bytes32 guess_hash = _active_player_guesses[player];
+      emit log_bytes32(guess_hash);
+      if (is_winning_guess_hash(guess_hash, _salt, _winning_hash)) {
+        uint256 payout = SafeMath.div(address(this).balance, _guess_tally[guess_hash]);
         pay_player(player, payout);
-      }
-      else {
+      } else {
         //TODO: If this is called after a certain time has passed in which no winner claimed
         //their reward, pay out the common proportional share.
         revert("You lost the game");
@@ -145,13 +144,24 @@ contract Quiz {
     }
   }
 
+  function is_winning_guess_hash(bytes32 guess_hash,
+                                 string memory salt,
+                                 bytes32 winning_hash) public pure returns (bool) {
+      return keccak256(abi.encodePacked(guess_hash, salt)) == winning_hash;
+  }
+
+  function create_winning_hash(string memory winning_phrase,
+                               string memory salt) public pure returns (bytes32) {
+    return keccak256(abi.encodePacked(keccak256(bytes(winning_phrase)), salt));
+  }
+
   function pay_player(address payable player, uint amount) private {
-    string memory guess = _active_player_guesses[player];
+    bytes32 guess_hash = _active_player_guesses[player];
     // We delete the player as a simple way to protect from reentrancy attacks
     delete _active_player_guesses[player];
     // We reduce the count for this specific guess when we pay it out to keep
     // the calculation of proportional payouts simple.
-    _guess_tally[guess]--;
+    _guess_tally[guess_hash]--;
     // We reduce the overall count to keep the calculation for general payments simple, too
     _guess_count--;
     // payout is the very last step to prevent reentrency attacks
