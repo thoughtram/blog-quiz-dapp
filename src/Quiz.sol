@@ -136,7 +136,7 @@ contract Quiz {
         get_sender().transfer(payout);
       }
       else {
-        revert("You lost");
+        revert("You lost the game");
       }
     } else if (state == GameState.Scammed) {
       // TODO: Need to proportional pay back fund

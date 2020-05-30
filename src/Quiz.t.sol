@@ -145,6 +145,42 @@ contract QuizTest is DSTest {
         assertEq(ALICE.balance, 1666666666666666667);
     }
 
+    function test_two_winner_one_loser_claim_reward() public {
+        // Alice (default) makes a guess
+        assertEq(ALICE.balance, 0 ether);
+        egg.make_guess("foo");
+
+        // Lahja makes a guess
+        _sender_source.set_sender(LAHJA);
+        egg.make_guess("foo");
+
+        // Bob makes a guess
+        _sender_source.set_sender(BOB);
+        egg.make_guess("boo");
+
+        //We reveal (done as Bob but shouldn't matter)
+        _time_machine.set_now(2000);
+        egg.reveal_answer(SALT);
+
+        // Bob claims his reward
+        try egg.claim_win() {
+            fail();
+        } catch Error(string memory reason) {
+            assertEq(reason, "You lost the game");
+            assertEq(BOB.balance, 0);
+        }
+
+        // Alice claims her reward
+        _sender_source.set_sender(ALICE);
+        egg.claim_win();
+        assertEq(ALICE.balance, 2500000000000000000);
+
+        // Lahja claims her reward
+        _sender_source.set_sender(LAHJA);
+        egg.claim_win();
+        assertEq(ALICE.balance, 2500000000000000000);
+    }
+
     receive() external payable { }
 
 }
