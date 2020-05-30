@@ -136,6 +136,8 @@ contract Quiz {
         get_sender().transfer(payout);
       }
       else {
+        //TODO: If this is called after a certain time has passed in which no winner claimed
+        //their reward, pay out the common proportional share.
         revert("You lost the game");
       }
     } else if (state == GameState.Scammed) {
@@ -159,6 +161,7 @@ contract Quiz {
     } else if (state == GameState.Scammed) {
       revert("Too late scammer!");
     } else if (state == GameState.RevealPeriod) {
+      // TODO: Verify our reveal corresponds in fact to the winning hash
       _revealed = true;
       _salt = salt;
     } else {
