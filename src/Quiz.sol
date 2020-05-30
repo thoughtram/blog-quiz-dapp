@@ -1,6 +1,6 @@
 pragma solidity ^0.6.7;
 
-import "ds-test/test.sol";
+import "./SafeMath.sol";
 
 interface ITimeSource {
   function get_now() external returns (uint);
@@ -125,8 +125,8 @@ contract Quiz {
       if (final_hash == _winning_hash) {
         string memory guess = _active_player_guesses[get_sender()];
         uint current_guess_tally = _guess_tally[guess];
-        // TODO: THIS IS PROBABLY PROBLEMATIC
-        uint payout = address(this).balance / current_guess_tally;
+        uint256 payout = SafeMath.div(address(this).balance, current_guess_tally);
+        //uint payout = address(this).balance / current_guess_tally;
         // We delete the player as a simple way to protect from reentrancy attacks
         delete _active_player_guesses[get_sender()];
         // We reduce the count for this specific guess when we pay it out to keep
