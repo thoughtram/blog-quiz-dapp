@@ -126,7 +126,6 @@ contract Quiz {
         string memory guess = _active_player_guesses[get_sender()];
         uint current_guess_tally = _guess_tally[guess];
         uint256 payout = SafeMath.div(address(this).balance, current_guess_tally);
-        //uint payout = address(this).balance / current_guess_tally;
         // We delete the player as a simple way to protect from reentrancy attacks
         delete _active_player_guesses[get_sender()];
         // We reduce the count for this specific guess when we pay it out to keep
