@@ -113,7 +113,7 @@ contract QuizTest is DSTest {
         assertEq(ALICE.balance, 5 ether);
     }
 
-    function test_two_winner_claim_reward() public {
+    function test_three_winner_claim_reward() public {
         // Alice (default) makes a guess
         assertEq(ALICE.balance, 0 ether);
         egg.make_guess("foo");
