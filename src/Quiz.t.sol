@@ -142,7 +142,7 @@ contract QuizTest is DSTest {
         // Lahja claims her reward
         _sender_source.set_sender(LAHJA);
         egg.claim_win();
-        assertEq(ALICE.balance, 1666666666666666667);
+        assertEq(LAHJA.balance, 1666666666666666667);
     }
 
     function test_two_winner_one_loser_claim_reward() public {
@@ -178,7 +178,37 @@ contract QuizTest is DSTest {
         // Lahja claims her reward
         _sender_source.set_sender(LAHJA);
         egg.claim_win();
-        assertEq(ALICE.balance, 2500000000000000000);
+        assertEq(LAHJA.balance, 2500000000000000000);
+    }
+
+    function test_two_winner_one_loser_claim_reward_after_scammed() public {
+        // Alice (default) makes a guess
+        assertEq(ALICE.balance, 0 ether);
+        egg.make_guess("foo");
+
+        // Lahja makes a guess
+        _sender_source.set_sender(LAHJA);
+        egg.make_guess("foo");
+
+        // Bob makes a guess
+        _sender_source.set_sender(BOB);
+        egg.make_guess("boo");
+
+        _time_machine.set_now(3000);
+
+        // Bob claims his reward
+        egg.claim_win();
+        assertEq(BOB.balance, 1666666666666666666);
+
+        // Alice claims her reward
+        _sender_source.set_sender(ALICE);
+        egg.claim_win();
+        assertEq(ALICE.balance, 1666666666666666667);
+
+        // Lahja claims her reward
+        _sender_source.set_sender(LAHJA);
+        egg.claim_win();
+        assertEq(LAHJA.balance, 1666666666666666667);
     }
 
     receive() external payable { }

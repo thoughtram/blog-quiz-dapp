@@ -62,6 +62,9 @@ contract Quiz {
   // calculate proportional payouts. We substract counts whenever we pay out players.
   mapping(string => uint) private _guess_tally;
 
+  // We keep a count of all guesses incase we have to split the pot equally across all
+  uint _guess_count;
+
 
   constructor(ITimeSource time_source,
               ISenderSource sender_source,
@@ -108,11 +111,14 @@ contract Quiz {
 
     _active_player_guesses[get_sender()] = guess;
     _guess_tally[guess]++;
+    _guess_count++;
   }
 
   function claim_win() public {
 
-    if (!made_guess(get_sender())){
+    address payable player = get_sender();
+
+    if (!made_guess(player)){
       revert("Not a player");
     }
 
@@ -123,16 +129,9 @@ contract Quiz {
       bytes32 final_hash = keccak256(abi.encodePacked(_active_player_guesses[get_sender()], _salt));
       emit log_bytes32(final_hash);
       if (final_hash == _winning_hash) {
-        string memory guess = _active_player_guesses[get_sender()];
-        uint current_guess_tally = _guess_tally[guess];
-        uint256 payout = SafeMath.div(address(this).balance, current_guess_tally);
-        // We delete the player as a simple way to protect from reentrancy attacks
-        delete _active_player_guesses[get_sender()];
-        // We reduce the count for this specific guess when we pay it out to keep
-        // the calculation of proportional payouts simple.
-        _guess_tally[guess]--;
-
-        get_sender().transfer(payout);
+        string memory guess = _active_player_guesses[player];
+        uint256 payout = SafeMath.div(address(this).balance, _guess_tally[guess]);
+        pay_player(player, payout);
       }
       else {
         //TODO: If this is called after a certain time has passed in which no winner claimed
@@ -140,9 +139,22 @@ contract Quiz {
         revert("You lost the game");
       }
     } else if (state == GameState.Scammed) {
-      // TODO: Need to proportional pay back fund
-      revert("Not implemented");
+      uint256 payout = SafeMath.div(address(this).balance, _guess_count);
+      pay_player(player, payout);
     }
+  }
+
+  function pay_player(address payable player, uint amount) private {
+    string memory guess = _active_player_guesses[player];
+    // We delete the player as a simple way to protect from reentrancy attacks
+    delete _active_player_guesses[player];
+    // We reduce the count for this specific guess when we pay it out to keep
+    // the calculation of proportional payouts simple.
+    _guess_tally[guess]--;
+    // We reduce the overall count to keep the calculation for general payments simple, too
+    _guess_count--;
+    // payout is the very last step to prevent reentrency attacks
+    player.transfer(amount);
   }
 
   function get_sender() private returns (address payable) {
