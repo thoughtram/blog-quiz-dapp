@@ -43,26 +43,31 @@ contract Quiz {
   uint private _reveal_epoch;
 
   // block time from when people can call us scammers if we have *NOT* revealed by then.
-  // Everyone will be able to call `get_my_money_back` at that point.
+  // Everyone will be able to call `claim_prize` at that point to claim an equal amount
+  // of the overall jackpot.
   uint private _scam_epoch;
 
-  // keccak256(guess + salt) have to result in the following hash to win the quiz
+  // The winning hash is cemented in as: keccak256((keccak256(winning_phrase), salt))
+  // This means players do not reveal their plain text guess to other players.
+  // Instead they only commit to the hash of their guess.
+  // That said, when we end the game by revealing, we do reveal the plain text winning phrase.
   bytes32 private _winning_hash;
 
   //TODO: Probably get rid of all string types
 
   // The salt will only be known once we reveal, making it impossible for participants to
-  // check if they got it right *before* we reveal the answer
+  // check if their guess is correct *before* we reveal the answer.
   string private _salt;
 
-  // Map players to their guesses. We remove players as soon as they claimed their profit.
+  // Map players to their guess hashes. We remove players as soon as they claimed their profit.
   mapping(address => bytes32) private _active_player_guesses;
 
   // Count how many addresses made the same guess. This is important to efficiently
   // calculate proportional payouts. We substract counts whenever we pay out players.
   mapping(bytes32 => uint) private _guess_tally;
 
-  // We keep a count of all guesses incase we have to split the pot equally across all
+  // We keep a count of all guesses incase we have to split the pot equally across all players.
+  // Again, we decrement this as we pay out money to keep things simple.
   uint _guess_count;
 
 
@@ -99,7 +104,6 @@ contract Quiz {
     return _active_player_guesses[someone] != bytes32("");
   }
 
-  // TODO: Everything :)
   function make_guess(bytes32 guess_hash) public {
     address payable player = get_sender();
     if (made_guess(player)) {
@@ -157,12 +161,11 @@ contract Quiz {
 
   function pay_player(address payable player, uint amount) private {
     bytes32 guess_hash = _active_player_guesses[player];
-    // We delete the player as a simple way to protect from reentrancy attacks
+    // After payout we delete the player and decrement the two different counters.
+    // This prevents the player from claiming prizes multiple times. Decrementing the counters
+    // makes it simple to calculate the continuing payouts for other players.
     delete _active_player_guesses[player];
-    // We reduce the count for this specific guess when we pay it out to keep
-    // the calculation of proportional payouts simple.
     _guess_tally[guess_hash]--;
-    // We reduce the overall count to keep the calculation for general payments simple, too
     _guess_count--;
     // payout is the very last step to prevent reentrency attacks
     player.transfer(amount);
