@@ -40,6 +40,7 @@ contract QuizTest is DSTest {
     MockSender _sender_source;
 
     string SALT = "o";
+    string WINNING_PHRASE = "thoughtram <3 Ethereum";
     bytes32 WINNING_HASH = 0x751e5a7a700e92dab970a5426c71da4c265e4e4b8e1e88789170a12baff30495;
 
     address payable ALICE = 0xcda949D0415aF93828f91E1b6B130F8eB407D704;
@@ -59,18 +60,37 @@ contract QuizTest is DSTest {
     }
 
     function test_hashing_scheme() public {
-        string memory winning_phrase = "thoughtram <3 Ethereum";
         bytes32 expected_winning_hash = 0x751e5a7a700e92dab970a5426c71da4c265e4e4b8e1e88789170a12baff30495;
-        bytes32 winning_hash = egg.create_winning_hash(winning_phrase, SALT);
+        bytes32 winning_hash = egg.create_winning_hash(WINNING_PHRASE, SALT);
         assertEq(winning_hash, expected_winning_hash);
 
-        egg.is_winning_guess_hash(keccak256(bytes(winning_phrase)), SALT, expected_winning_hash);
+        egg.is_winning_guess_hash(keccak256(bytes(WINNING_PHRASE)), SALT, expected_winning_hash);
+    }
+
+    function test_can_not_reveal_wrong_salt() public {
+        assertTrue(egg.get_state() == GameState.Started);
+        _time_machine.set_now(2000);
+        try  egg.reveal_answer(WINNING_PHRASE, "bad salt") {
+            fail();
+        } catch Error(string memory reason) {
+            assertEq(reason, "The phrase and salt do not match up with the _winning_hash");
+        }
+    }
+
+    function test_can_not_reveal_wrong_phrase() public {
+        assertTrue(egg.get_state() == GameState.Started);
+        _time_machine.set_now(2000);
+        try  egg.reveal_answer("bad phrase", SALT) {
+            fail();
+        } catch Error(string memory reason) {
+            assertEq(reason, "The phrase and salt do not match up with the _winning_hash");
+        }
     }
 
     function test_reveal_before_reveal_epoch_started() public {
         assertTrue(egg.get_state() == GameState.Started);
 
-        try egg.reveal_answer(SALT) {
+        try egg.reveal_answer(WINNING_PHRASE, SALT) {
             fail();
         } catch Error(string memory reason) {
             assertEq(reason, "Can not reveal before reveal_epoch started");
@@ -81,7 +101,7 @@ contract QuizTest is DSTest {
     function test_reveal_after_scam_epoch_started() public {
         assertTrue(egg.get_state() == GameState.Started);
         _time_machine.set_now(3000);
-        try egg.reveal_answer(SALT) {
+        try egg.reveal_answer(WINNING_PHRASE, SALT) {
             fail();
         } catch Error(string memory reason) {
             assertEq(reason, "Too late scammer!");
@@ -91,13 +111,13 @@ contract QuizTest is DSTest {
     function test_reveal_after_reveal_epoch_started() public {
         assertTrue(egg.get_state() == GameState.Started);
         _time_machine.set_now(2000);
-        egg.reveal_answer(SALT);
+        egg.reveal_answer(WINNING_PHRASE, SALT);
         assertTrue(egg.get_state() == GameState.Revealed);
     }
 
     function test_reveal_when_already_revealed() public {
         test_reveal_after_reveal_epoch_started();
-        try egg.reveal_answer(SALT) {
+        try egg.reveal_answer(WINNING_PHRASE, SALT) {
             fail();
         } catch Error(string memory reason) {
             assertEq(reason, "Already revealed. Can not reveal again!");
@@ -105,7 +125,7 @@ contract QuizTest is DSTest {
     }
 
     function test_claim_while_game_is_on() public {
-        egg.make_guess(keccak256(bytes("thoughtram <3 Ethereum")));
+        egg.make_guess(keccak256(bytes(WINNING_PHRASE)));
         try egg.claim_win() {
             fail();
         } catch Error(string memory reason) {
@@ -115,9 +135,9 @@ contract QuizTest is DSTest {
 
     function test_claim_win_after_revealed() public {
         assertEq(ALICE.balance, 0 ether);
-        egg.make_guess(keccak256(bytes("thoughtram <3 Ethereum")));
+        egg.make_guess(keccak256(bytes(WINNING_PHRASE)));
         _time_machine.set_now(2000);
-        egg.reveal_answer(SALT);
+        egg.reveal_answer(WINNING_PHRASE, SALT);
         egg.claim_win();
         assertEq(ALICE.balance, 5 ether);
     }
@@ -125,19 +145,19 @@ contract QuizTest is DSTest {
     function test_three_winner_claim_reward() public {
         // Alice (default) makes a guess
         assertEq(ALICE.balance, 0 ether);
-        egg.make_guess(keccak256(bytes("thoughtram <3 Ethereum")));
+        egg.make_guess(keccak256(bytes(WINNING_PHRASE)));
 
         // Lahja makes a guess
         _sender_source.set_sender(LAHJA);
-        egg.make_guess(keccak256(bytes("thoughtram <3 Ethereum")));
+        egg.make_guess(keccak256(bytes(WINNING_PHRASE)));
 
         // Bob makes a guess
         _sender_source.set_sender(BOB);
-        egg.make_guess(keccak256(bytes("thoughtram <3 Ethereum")));
+        egg.make_guess(keccak256(bytes(WINNING_PHRASE)));
 
         //We reveal (done as Bob but shouldn't matter)
         _time_machine.set_now(2000);
-        egg.reveal_answer(SALT);
+        egg.reveal_answer(WINNING_PHRASE, SALT);
 
         // Bob claims his reward
         egg.claim_win();
@@ -157,11 +177,11 @@ contract QuizTest is DSTest {
     function test_two_winner_one_loser_claim_reward() public {
         // Alice (default) makes a guess
         assertEq(ALICE.balance, 0 ether);
-        egg.make_guess(keccak256(bytes("thoughtram <3 Ethereum")));
+        egg.make_guess(keccak256(bytes(WINNING_PHRASE)));
 
         // Lahja makes a guess
         _sender_source.set_sender(LAHJA);
-        egg.make_guess(keccak256(bytes("thoughtram <3 Ethereum")));
+        egg.make_guess(keccak256(bytes(WINNING_PHRASE)));
 
         // Bob makes a guess
         _sender_source.set_sender(BOB);
@@ -169,7 +189,7 @@ contract QuizTest is DSTest {
 
         //We reveal (done as Bob but shouldn't matter)
         _time_machine.set_now(2000);
-        egg.reveal_answer(SALT);
+        egg.reveal_answer(WINNING_PHRASE, SALT);
 
         // Bob claims his reward
         try egg.claim_win() {
@@ -193,11 +213,11 @@ contract QuizTest is DSTest {
     function test_two_winner_one_loser_claim_reward_after_scammed() public {
         // Alice (default) makes a guess
         assertEq(ALICE.balance, 0 ether);
-        egg.make_guess(keccak256(bytes("thoughtram <3 Ethereum")));
+        egg.make_guess(keccak256(bytes(WINNING_PHRASE)));
 
         // Lahja makes a guess
         _sender_source.set_sender(LAHJA);
-        egg.make_guess(keccak256(bytes("thoughtram <3 Ethereum")));
+        egg.make_guess(keccak256(bytes(WINNING_PHRASE)));
 
         // Bob makes a guess
         _sender_source.set_sender(BOB);

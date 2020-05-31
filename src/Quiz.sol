@@ -174,7 +174,7 @@ contract Quiz {
     return _sender_source.get_sender(msg.sender);
   }
 
-  function reveal_answer(string memory salt) public {
+  function reveal_answer(string memory winning_phrase, string memory salt) public {
     GameState state = get_state();
     if (state == GameState.Revealed) {
       revert("Already revealed. Can not reveal again!");
@@ -183,7 +183,11 @@ contract Quiz {
     } else if (state == GameState.Scammed) {
       revert("Too late scammer!");
     } else if (state == GameState.RevealPeriod) {
-      // TODO: Verify our reveal corresponds in fact to the winning hash
+      if (create_winning_hash(winning_phrase, salt) != _winning_hash) {
+        // The only reason we reveal the winning phrase is so that everyone can see we used
+        // a guessable phrase such as "thoughtram <3 Ethereum" and not gibberish such as "x8.jjkd"
+        revert("The phrase and salt do not match up with the _winning_hash");
+      }
       _revealed = true;
       _salt = salt;
     } else {
