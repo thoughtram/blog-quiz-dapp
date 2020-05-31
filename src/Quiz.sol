@@ -32,10 +32,13 @@ enum GameState {
 
 contract Quiz {
   // For debugging
-  event log_bytes32 (bytes32);
-  event log_address (address payable);
-  event log_named_uint (bytes32 key, uint val);
-  // TODO: Think about useful events to emit
+  // event log_bytes32 (bytes32);
+  // event log_address (address payable);
+  // event log_named_uint (bytes32 key, uint val);
+
+  event Win(address indexed winner, uint256 value);
+  event Payout(address indexed beneficiary, uint256 value);
+  event Reveal(string indexed phrase);
 
   bool _revealed;
   ITimeSource private _time_source;
@@ -105,6 +108,9 @@ contract Quiz {
     delete _active_player_guesses[player];
     _guess_tally[guess_hash]--;
     _guess_count--;
+
+    emit Payout(player, amount);
+
     // payout is the very last step to prevent reentrency attacks
     player.transfer(amount);
   }
@@ -165,10 +171,11 @@ contract Quiz {
     } else if (state == GameState.Revealed) {
 
       bytes32 guess_hash = _active_player_guesses[player];
-      emit log_bytes32(guess_hash);
+
       if (is_winning_guess_hash(guess_hash, _salt, _winning_hash)) {
-        uint256 payout = SafeMath.div(address(this).balance, _guess_tally[guess_hash]);
-        pay_player(player, payout);
+        uint256 amount = SafeMath.div(address(this).balance, _guess_tally[guess_hash]);
+        emit Win(player, amount);
+        pay_player(player, amount);
       } else {
         revert("Not a winner. Wait until winner-no-show-period to still claim a prize");
       }
@@ -206,6 +213,7 @@ contract Quiz {
         // a guessable phrase such as "thoughtram <3 Ethereum" and not gibberish such as "x8.jjkd"
         revert("The phrase and salt do not match up with the _winning_hash");
       }
+      emit Reveal(winning_phrase);
       _revealed = true;
       _salt = salt;
     } else {
