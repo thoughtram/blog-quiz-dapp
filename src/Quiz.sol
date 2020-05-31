@@ -53,11 +53,9 @@ contract Quiz {
   // That said, when we end the game by revealing, we do reveal the plain text winning phrase.
   bytes32 private _winning_hash;
 
-  //TODO: Probably get rid of all string types
-
   // The salt will only be known once we reveal, making it impossible for participants to
   // check if their guess is correct *before* we reveal the answer.
-  string private _salt;
+  bytes32 private _salt;
 
   // Map players to their guess hashes. We remove players as soon as they claimed their profit.
   mapping(address => bytes32) private _active_player_guesses;
@@ -169,17 +167,17 @@ contract Quiz {
   }
 
   function is_winning_guess_hash(bytes32 guess_hash,
-                                 string memory salt,
+                                 bytes32 salt,
                                  bytes32 winning_hash) public pure returns (bool) {
       return keccak256(abi.encodePacked(guess_hash, salt)) == winning_hash;
   }
 
   function create_winning_hash(string memory winning_phrase,
-                               string memory salt) public pure returns (bytes32) {
+                               bytes32 salt) public pure returns (bytes32) {
     return keccak256(abi.encodePacked(keccak256(bytes(winning_phrase)), salt));
   }
 
-  function reveal_answer(string memory winning_phrase, string memory salt) public {
+  function reveal_answer(string memory winning_phrase, bytes32 salt) public {
     GameState state = get_state();
     if (state == GameState.Revealed) {
       revert("Already revealed. Can not reveal again!");

@@ -39,9 +39,9 @@ contract QuizTest is DSTest {
     MockTimeMachine _time_machine;
     MockSender _sender_source;
 
-    string SALT = "o";
+    bytes32 SALT = keccak256("some-crazy-salt");
     string WINNING_PHRASE = "thoughtram <3 Ethereum";
-    bytes32 WINNING_HASH = 0x751e5a7a700e92dab970a5426c71da4c265e4e4b8e1e88789170a12baff30495;
+    bytes32 WINNING_HASH = 0x263f5435088467311d1765eb511cb53dd70655fbae31f83ae09b278f84210ec2;
 
     address payable ALICE = 0xcda949D0415aF93828f91E1b6B130F8eB407D704;
     address payable BOB = 0xcca949D0415aF93828F91E1B6b130f8eB407d704;
@@ -60,11 +60,10 @@ contract QuizTest is DSTest {
     }
 
     function test_hashing_scheme() public {
-        bytes32 expected_winning_hash = 0x751e5a7a700e92dab970a5426c71da4c265e4e4b8e1e88789170a12baff30495;
         bytes32 winning_hash = egg.create_winning_hash(WINNING_PHRASE, SALT);
-        assertEq(winning_hash, expected_winning_hash);
+        assertEq(winning_hash, WINNING_HASH);
 
-        egg.is_winning_guess_hash(keccak256(bytes(WINNING_PHRASE)), SALT, expected_winning_hash);
+        egg.is_winning_guess_hash(keccak256(bytes(WINNING_PHRASE)), SALT, WINNING_HASH);
     }
 
     function test_can_not_reveal_wrong_salt() public {
