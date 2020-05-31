@@ -68,7 +68,7 @@ contract Quiz {
 
   // We keep a count of all guesses incase we have to split the pot equally across all players.
   // Again, we decrement this as we pay out money to keep things simple.
-  uint _guess_count;
+  uint private _guess_count;
 
 
   constructor(ITimeSource time_source,
@@ -86,6 +86,30 @@ contract Quiz {
     _winning_hash = winning_hash;
   }
 
+  // =======PRIVATE FUNCTIONS=======
+  function has_made_guess(address someone) private view returns (bool) {
+    return _active_player_guesses[someone] != bytes32("");
+  }
+
+  function pay_player(address payable player, uint amount) private {
+    bytes32 guess_hash = _active_player_guesses[player];
+    // After payout we delete the player and decrement the two different counters.
+    // This prevents the player from claiming prizes multiple times. Decrementing the counters
+    // makes it simple to calculate the continuing payouts for other players.
+    delete _active_player_guesses[player];
+    _guess_tally[guess_hash]--;
+    _guess_count--;
+    // payout is the very last step to prevent reentrency attacks
+    player.transfer(amount);
+  }
+
+  function get_sender() private returns (address payable) {
+    // In production, this just echos msg.sender back to us but during testing, we can
+    // mock different users to test complex scenarios.
+    return _sender_source.get_sender(msg.sender);
+  }
+
+  // =======PUBLIC APIS=======
 
   function get_state() public returns (GameState) {
     if (_revealed) {
@@ -100,13 +124,9 @@ contract Quiz {
     }
   }
 
-  function made_guess(address someone) private view returns (bool) {
-    return _active_player_guesses[someone] != bytes32("");
-  }
-
   function make_guess(bytes32 guess_hash) public {
     address payable player = get_sender();
-    if (made_guess(player)) {
+    if (has_made_guess(player)) {
       revert("Already placed your guess!");
     }
 
@@ -119,11 +139,11 @@ contract Quiz {
     _guess_count++;
   }
 
-  function claim_win() public {
+  function claim_prize() public {
 
     address payable player = get_sender();
 
-    if (!made_guess(player)){
+    if (!has_made_guess(player)){
       revert("Not a player");
     }
 
@@ -157,24 +177,6 @@ contract Quiz {
   function create_winning_hash(string memory winning_phrase,
                                string memory salt) public pure returns (bytes32) {
     return keccak256(abi.encodePacked(keccak256(bytes(winning_phrase)), salt));
-  }
-
-  function pay_player(address payable player, uint amount) private {
-    bytes32 guess_hash = _active_player_guesses[player];
-    // After payout we delete the player and decrement the two different counters.
-    // This prevents the player from claiming prizes multiple times. Decrementing the counters
-    // makes it simple to calculate the continuing payouts for other players.
-    delete _active_player_guesses[player];
-    _guess_tally[guess_hash]--;
-    _guess_count--;
-    // payout is the very last step to prevent reentrency attacks
-    player.transfer(amount);
-  }
-
-  function get_sender() private returns (address payable) {
-    // In production, this just echos msg.sender back to us but during testing, we can
-    // mock different users to test complex scenarios.
-    return _sender_source.get_sender(msg.sender);
   }
 
   function reveal_answer(string memory winning_phrase, string memory salt) public {

@@ -126,19 +126,19 @@ contract QuizTest is DSTest {
 
     function test_claim_while_game_is_on() public {
         egg.make_guess(keccak256(bytes(WINNING_PHRASE)));
-        try egg.claim_win() {
+        try egg.claim_prize() {
             fail();
         } catch Error(string memory reason) {
             assertEq(reason, "Be patient! The game is still running.");
         }
     }
 
-    function test_claim_win_after_revealed() public {
+    function test_claim_prize_after_revealed() public {
         assertEq(ALICE.balance, 0 ether);
         egg.make_guess(keccak256(bytes(WINNING_PHRASE)));
         _time_machine.set_now(2000);
         egg.reveal_answer(WINNING_PHRASE, SALT);
-        egg.claim_win();
+        egg.claim_prize();
         assertEq(ALICE.balance, 5 ether);
     }
 
@@ -160,17 +160,17 @@ contract QuizTest is DSTest {
         egg.reveal_answer(WINNING_PHRASE, SALT);
 
         // Bob claims his reward
-        egg.claim_win();
+        egg.claim_prize();
         assertEq(BOB.balance, 1666666666666666666);
 
         // Alice claims her reward
         _sender_source.set_sender(ALICE);
-        egg.claim_win();
+        egg.claim_prize();
         assertEq(ALICE.balance, 1666666666666666667);
 
         // Lahja claims her reward
         _sender_source.set_sender(LAHJA);
-        egg.claim_win();
+        egg.claim_prize();
         assertEq(LAHJA.balance, 1666666666666666667);
     }
 
@@ -192,7 +192,7 @@ contract QuizTest is DSTest {
         egg.reveal_answer(WINNING_PHRASE, SALT);
 
         // Bob claims his reward
-        try egg.claim_win() {
+        try egg.claim_prize() {
             fail();
         } catch Error(string memory reason) {
             assertEq(reason, "You lost the game");
@@ -201,12 +201,12 @@ contract QuizTest is DSTest {
 
         // Alice claims her reward
         _sender_source.set_sender(ALICE);
-        egg.claim_win();
+        egg.claim_prize();
         assertEq(ALICE.balance, 2500000000000000000);
 
         // Lahja claims her reward
         _sender_source.set_sender(LAHJA);
-        egg.claim_win();
+        egg.claim_prize();
         assertEq(LAHJA.balance, 2500000000000000000);
     }
 
@@ -226,17 +226,17 @@ contract QuizTest is DSTest {
         _time_machine.set_now(3000);
 
         // Bob claims his reward
-        egg.claim_win();
+        egg.claim_prize();
         assertEq(BOB.balance, 1666666666666666666);
 
         // Alice claims her reward
         _sender_source.set_sender(ALICE);
-        egg.claim_win();
+        egg.claim_prize();
         assertEq(ALICE.balance, 1666666666666666667);
 
         // Lahja claims her reward
         _sender_source.set_sender(LAHJA);
-        egg.claim_win();
+        egg.claim_prize();
         assertEq(LAHJA.balance, 1666666666666666667);
     }
 
