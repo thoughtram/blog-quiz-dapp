@@ -197,7 +197,5 @@ contract Quiz {
     } else {
       revert("Invariant");
     }
-
   }
-
 }
