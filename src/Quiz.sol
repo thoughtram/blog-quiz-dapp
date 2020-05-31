@@ -36,6 +36,7 @@ contract Quiz {
   // event log_address (address payable);
   // event log_named_uint (bytes32 key, uint val);
 
+  event Guess(address indexed player, uint256 total_guess_count);
   event Win(address indexed winner, uint256 value);
   event Payout(address indexed beneficiary, uint256 value);
   event Reveal(string indexed phrase);
@@ -155,6 +156,7 @@ contract Quiz {
     _active_player_guesses[player] = guess_hash;
     _guess_tally[guess_hash]++;
     _guess_count++;
+    emit Guess(player, _guess_count);
   }
 
   function claim_prize() public {
