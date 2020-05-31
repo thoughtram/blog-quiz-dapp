@@ -39,6 +39,10 @@ contract QuizTest is DSTest {
     MockTimeMachine _time_machine;
     MockSender _sender_source;
 
+    uint REVEAL_EPOCH = 2000;
+    uint SCAM_EPOCH = 3000;
+    uint WINNER_NO_SHOW_EPOCH = 4000;
+
     bytes32 SALT = keccak256("some-crazy-salt");
     string WINNING_PHRASE = "thoughtram <3 Ethereum";
     bytes32 WINNING_HASH = 0x263f5435088467311d1765eb511cb53dd70655fbae31f83ae09b278f84210ec2;
@@ -51,7 +55,14 @@ contract QuizTest is DSTest {
         _time_machine = new MockTimeMachine(1000);
         _sender_source = new MockSender();
         _sender_source.set_sender(ALICE);
-        egg = (new Quiz){value: 5 ether}(_time_machine, _sender_source, 2000, 3000, WINNING_HASH);
+        egg = (new Quiz){value: 5 ether}(
+            _time_machine,
+            _sender_source,
+            REVEAL_EPOCH,
+            SCAM_EPOCH,
+            WINNER_NO_SHOW_EPOCH,
+            WINNING_HASH
+        );
     }
 
     function test_initial_state() public {
@@ -194,7 +205,7 @@ contract QuizTest is DSTest {
         try egg.claim_prize() {
             fail();
         } catch Error(string memory reason) {
-            assertEq(reason, "You lost the game");
+            assertEq(reason, "Not a winner. Wait until winner-no-show-period to still claim a prize");
             assertEq(BOB.balance, 0);
         }
 
@@ -223,6 +234,36 @@ contract QuizTest is DSTest {
         egg.make_guess("boo");
 
         _time_machine.set_now(3000);
+
+        // Bob claims his reward
+        egg.claim_prize();
+        assertEq(BOB.balance, 1666666666666666666);
+
+        // Alice claims her reward
+        _sender_source.set_sender(ALICE);
+        egg.claim_prize();
+        assertEq(ALICE.balance, 1666666666666666667);
+
+        // Lahja claims her reward
+        _sender_source.set_sender(LAHJA);
+        egg.claim_prize();
+        assertEq(LAHJA.balance, 1666666666666666667);
+    }
+
+    function test_two_winner_one_loser_claim_reward_after_winner_no_show() public {
+        // Alice (default) makes a guess
+        assertEq(ALICE.balance, 0 ether);
+        egg.make_guess(keccak256(bytes(WINNING_PHRASE)));
+
+        // Lahja makes a guess
+        _sender_source.set_sender(LAHJA);
+        egg.make_guess(keccak256(bytes(WINNING_PHRASE)));
+
+        // Bob makes a guess
+        _sender_source.set_sender(BOB);
+        egg.make_guess("boo");
+
+        _time_machine.set_now(4000);
 
         // Bob claims his reward
         egg.claim_prize();

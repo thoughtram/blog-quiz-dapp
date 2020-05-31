@@ -26,7 +26,8 @@ enum GameState {
   Started,
   RevealPeriod,
   Revealed,
-  Scammed
+  Scammed,
+  WinnerNoShow
 }
 
 contract Quiz {
@@ -47,6 +48,10 @@ contract Quiz {
   // Everyone will be able to call `claim_prize` at that point to claim an equal amount
   // of the overall jackpot.
   uint private _scam_epoch;
+
+  // block time from when *everyone* will be able to claim an equal amount of the overall
+  // jackpot in case no winner showed up to claim their prize until now.
+  uint private _winner_no_show_epoch;
 
   // The winning hash is cemented in as: keccak256((keccak256(winning_phrase), salt))
   // This means players do not reveal their plain text guess to other players.
@@ -74,6 +79,7 @@ contract Quiz {
               ISenderSource sender_source,
               uint reveal_epoch,
               uint scam_epoch,
+              uint winner_no_show_epoch,
               bytes32 winning_hash
               ) public payable {
 
@@ -82,6 +88,7 @@ contract Quiz {
     _sender_source = sender_source;
     _reveal_epoch = reveal_epoch;
     _scam_epoch = scam_epoch;
+    _winner_no_show_epoch = winner_no_show_epoch;
     _winning_hash = winning_hash;
   }
 
@@ -111,16 +118,22 @@ contract Quiz {
   // =======PUBLIC APIS=======
 
   function get_state() public returns (GameState) {
+    uint this_moment = _time_source.get_now();
     if (_revealed) {
-      return GameState.Revealed;
+      if (this_moment < _winner_no_show_epoch) {
+        return GameState.Revealed;
+      }
+      return GameState.WinnerNoShow;
     }
-    if (_time_source.get_now() < _reveal_epoch) {
+    if (this_moment < _reveal_epoch) {
       return GameState.Started;
-    } else if (_time_source.get_now() < _scam_epoch) {
+    } else if (this_moment < _scam_epoch) {
       return GameState.RevealPeriod;
-    } else if (_time_source.get_now() >= _scam_epoch) {
+    } else if (this_moment >= _scam_epoch) {
       return GameState.Scammed;
     }
+
+    revert("Invariant");
   }
 
   function make_guess(bytes32 guess_hash) public {
@@ -157,10 +170,11 @@ contract Quiz {
         uint256 payout = SafeMath.div(address(this).balance, _guess_tally[guess_hash]);
         pay_player(player, payout);
       } else {
-        //TODO: If this is called after a certain time has passed in which no winner claimed
-        //their reward, pay out the common proportional share.
-        revert("You lost the game");
+        revert("Not a winner. Wait until winner-no-show-period to still claim a prize");
       }
+    } else if (state == GameState.WinnerNoShow) {
+      uint256 payout = SafeMath.div(address(this).balance, _guess_count);
+      pay_player(player, payout);
     } else if (state == GameState.Scammed) {
       uint256 payout = SafeMath.div(address(this).balance, _guess_count);
       pay_player(player, payout);
