@@ -34,6 +34,7 @@ contract Quiz {
   event log_bytes32 (bytes32);
   event log_address (address payable);
   event log_named_uint (bytes32 key, uint val);
+  // TODO: Think about useful events to emit
 
   bool _revealed;
   ITimeSource private _time_source;
